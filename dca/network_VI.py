@@ -772,5 +772,5 @@ AE_types = {'normal': Autoencoder, 'poisson': PoissonAutoencoder,
             'nb': NBConstantDispAutoencoder, 'nb-conddisp': NBAutoencoder,
             'nb-shared': NBSharedAutoencoder, 'nb-fork': NBForkAutoencoder,
             'zinb': ZINBConstantDispAutoencoder, 'zinb-conddisp': ZINBAutoencoder,
-            'zinb-shared': ZINBSharedAutoencoder, 'zinb-fork': ZINBForkAutoencoder}
+            'zinb-shared': ZINBSharedAutoencoder, 'zinb-fork': ZINBForkAutoencoder} 
 
