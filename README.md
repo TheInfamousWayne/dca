@@ -12,6 +12,7 @@ $ cd ~
 $ git clone https://github.com/TheInfamousWayne/tfdiffeq.git
 $ cd tfdiffeq
 $ pip install -e .
+```
 
 #### pip
 
