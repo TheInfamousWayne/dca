@@ -17,14 +17,12 @@ $ pip install -e .
 
 For a traditional Python installation of the count autoencoder and the required packages, use
 
-```
+```bash
 $ cd ~
 $ git clone https://github.com/TheInfamousWayne/dca.git
 $ cd dca
 $ pip install -e .
 ```
-
-
 
 ### Usage
 
