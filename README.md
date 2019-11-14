@@ -6,21 +6,25 @@ See our [bioRxiv manuscript](https://www.biorxiv.org/content/early/2018/04/13/30
 
 ### Installation
 
+**To run ODE, first install this**
+```bash
+$ cd ~
+$ git clone https://github.com/TheInfamousWayne/tfdiffeq.git
+$ cd tfdiffeq
+$ pip install -e .
+
 #### pip
 
 For a traditional Python installation of the count autoencoder and the required packages, use
 
 ```
-$ pip install dca
+$ cd ~
+$ git clone https://github.com/TheInfamousWayne/dca.git
+$ cd dca
+$ pip install -e .
 ```
 
-#### conda
 
-Another approach for installing count autoencoder and the required packages is to use [Conda](https://conda.io/docs/) (most easily obtained via the [Miniconda Python distribution](https://conda.io/miniconda.html)). Afterwards run the following commands.
-
-```
-$ conda install -c bioconda dca
-```
 
 ### Usage
 
