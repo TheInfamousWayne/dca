@@ -16,7 +16,7 @@ setup(
                       'kopt',
                       'pandas' #for preprocessing
                       ],
-    url='https://github.com/theislab/dca',
+    url='https://github.com/theinfamouswayne/dca',
     entry_points={
         'console_scripts': [
             'dca = dca.__main__:main'
