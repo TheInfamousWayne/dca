@@ -28,7 +28,7 @@ import numpy as np
 import tensorflow as tf
 import keras.optimizers as opt
 from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
-from keras import backend as K
+import tensorflow.python.keras.backend as K
 from keras.preprocessing.image import Iterator
 
 
@@ -38,7 +38,7 @@ def train(adata, network, output_dir=None, optimizer='rmsprop', learning_rate=No
           validation_split=0.1, tensorboard=False, verbose=True, threads=None,
           **kwds):
 
-    K.set_session(tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=threads, inter_op_parallelism_threads=threads)))
+    K.set_session(tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(intra_op_parallelism_threads=threads, inter_op_parallelism_threads=threads)))
     model = network.model
     loss = network.loss
     if output_dir is not None:
@@ -95,7 +95,7 @@ def train(adata, network, output_dir=None, optimizer='rmsprop', learning_rate=No
 
 def train_with_args(args):
 
-    K.set_session(tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=args.threads,
+    K.set_session(tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(intra_op_parallelism_threads=args.threads,
                                                    inter_op_parallelism_threads=args.threads)))
     # set seed for reproducibility
     random.seed(42)
