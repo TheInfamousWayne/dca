@@ -14,7 +14,7 @@ setup(
                       'scikit-learn',
                       'scanpy',
                       'kopt',
-                      'tensorflow>=2.0'
+                      'tensorflow>=2.0',
                       'pandas' #for preprocessing
                       ],
     url='https://github.com/theinfamouswayne/dca',
