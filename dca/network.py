@@ -20,15 +20,21 @@ from abc import ABCMeta, abstractmethod
 import numpy as np
 import scanpy.api as sc
 
-import keras
-from keras.layers import Input, Dense, Dropout, Activation, BatchNormalization, Lambda
-from keras.models import Model
-from keras.regularizers import l1_l2
-from keras.objectives import mean_squared_error
-from keras.initializers import Constant
-from keras import backend as K
+# import keras
+# from keras.layers import Input, Dense, Dropout, Activation, BatchNormalization, Lambda
+# from keras.models import Model
+# from keras.regularizers import l1_l2
+# from keras.objectives import mean_squared_error
+# from keras.initializers import Constant
+# from keras import backend as K
+
+from tensorflow.keras import Input, Model
+from tensorflow.keras.layers import Dense, Dropout, Activation, BatchNormalization, Lambda
+from tensorflow.keras.regularizers import l1_l2
 
 import tensorflow as tf
+import tensorflow.keras.losses.MSE as mean_squared_error
+import tensorflow.keras.backend as K
 
 from .loss import poisson_loss, NB, ZINB
 from .layers import ConstantDispersionLayer, SliceLayer, ColwiseMultLayer, ElementwiseDense
@@ -766,4 +772,3 @@ AE_types = {'normal': Autoencoder, 'poisson': PoissonAutoencoder,
             'zinb': ZINBConstantDispAutoencoder, 'zinb-conddisp': ZINBAutoencoder,
             'zinb-shared': ZINBSharedAutoencoder, 'zinb-fork': ZINBForkAutoencoder,
             'zinb-elempi': ZINBAutoencoderElemPi}
-
