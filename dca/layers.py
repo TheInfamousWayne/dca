@@ -1,8 +1,13 @@
-from keras.engine.topology import Layer
-from keras.layers import Lambda, Dense
-from keras.engine.base_layer import InputSpec
-from keras import backend as K
+# from keras.engine.topology import Layer
+# from keras.layers import Lambda, Dense
+# from keras.engine.base_layer import InputSpec
+# from keras import backend as K
+
+from tensoflow.keras.layers import Layer, Lambda, Dense, InputSpec
+
 import tensorflow as tf
+import tensoflow.keras.backend as K 
+
 
 
 class ConstantDispersionLayer(Layer):

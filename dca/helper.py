@@ -2,12 +2,10 @@ from random import randint
 
 import numpy as np
 
-from keras import backend as K
-from keras.engine import Layer
-from keras.layers import initializers
-from keras.layers import activations
-from keras.layers import regularizers
-from keras.layers import constraints
+import tensorflow.keras.backend as K
+from tensorflow.keras.layers import Layer
+from tensorflow.keras import initializers, activations, regularizers, constraints
+
 
 
 class MaskingDense(Layer):

@@ -39,7 +39,7 @@ def dca(adata,
         training_kwds={},
         return_model=False,
         return_info=False,
-        copy=False
+        copy=False,
         ):
     """Deep count autoencoder(DCA) API.
 
@@ -167,7 +167,8 @@ def dca(adata,
         'hidden_dropout': hidden_dropout,
         'batchnorm': batchnorm,
         'activation': activation,
-        'init': init
+        'init': init,
+        'encoder_type':'basic'
     }
 
     input_size = output_size = adata.n_vars

@@ -26,10 +26,10 @@ from .hyper import hyper
 
 import numpy as np
 import tensorflow as tf
-import keras.optimizers as opt
-from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
-import tensorflow.python.keras.backend as K
-from keras.preprocessing.image import Iterator
+import tensorflow.keras.optimizers as opt
+from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
+import tensorflow.keras.backend as K
+from tensorflow.keras.preprocessing.image import Iterator
 
 
 def train(adata, network, output_dir=None, optimizer='rmsprop', learning_rate=None,
@@ -38,7 +38,10 @@ def train(adata, network, output_dir=None, optimizer='rmsprop', learning_rate=No
           validation_split=0.1, tensorboard=False, verbose=True, threads=None,
           **kwds):
 
-    K.set_session(tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(intra_op_parallelism_threads=threads, inter_op_parallelism_threads=threads)))
+    # K.set_session(tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(intra_op_parallelism_threads=threads, inter_op_parallelism_threads=threads)))
+    tf.config.threading.set_intra_op_parallelism_threads(threads)
+    tf.config.threading.set_inter_op_parallelism_threads(threads)
+
     model = network.model
     loss = network.loss
     if output_dir is not None:
@@ -95,8 +98,11 @@ def train(adata, network, output_dir=None, optimizer='rmsprop', learning_rate=No
 
 def train_with_args(args):
 
-    K.set_session(tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(intra_op_parallelism_threads=args.threads,
-                                                   inter_op_parallelism_threads=args.threads)))
+    # K.set_session(tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(intra_op_parallelism_threads=args.threads,
+    #                                                inter_op_parallelism_threads=args.threads)))
+    tf.config.threading.set_intra_op_parallelism_threads(threads)
+    tf.config.threading.set_inter_op_parallelism_threads(threads)
+    
     # set seed for reproducibility
     random.seed(42)
     np.random.seed(42)
@@ -156,7 +162,8 @@ def train_with_args(args):
     losses = train(adata[adata.obs.dca_split == 'train'], net,
                    output_dir=args.outputdir,
                    learning_rate=args.learningrate,
-                   epochs=args.epochs, batch_size=args.batchsize,
+                   epochs=args.epochs, 
+                   batch_size=args.batchsize,
                    early_stop=args.earlystop,
                    reduce_lr=args.reducelr,
                    output_subset=genelist,

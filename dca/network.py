@@ -20,14 +20,6 @@ from abc import ABCMeta, abstractmethod
 import numpy as np
 import scanpy.api as sc
 
-# import keras
-# from keras.layers import Input, Dense, Dropout, Activation, BatchNormalization, Lambda
-# from keras.models import Model
-# from keras.regularizers import l1_l2
-# from keras.objectives import mean_squared_error
-# from keras.initializers import Constant
-# from keras import backend as K
-
 from tensorflow.keras import Input, Model
 from tensorflow.keras.layers import Dense, Dropout, Activation, BatchNormalization, Lambda
 from tensorflow.keras.regularizers import l1_l2
@@ -51,6 +43,7 @@ class Autoencoder():
                  input_size,
                  output_size=None,
                  hidden_size=(64, 32, 64),
+                 encoder_type='basic',
                  l2_coef=0.,
                  l1_coef=0.,
                  l2_enc_coef=0.,
@@ -65,14 +58,14 @@ class Autoencoder():
                  debug=False):
 
         self.input_size = input_size
-        self.output_size = output_size
+        self.output_size = output_size if output_size is not None else input_size
         self.hidden_size = hidden_size
         self.l2_coef = l2_coef
         self.l1_coef = l1_coef
         self.l2_enc_coef = l2_enc_coef
         self.l1_enc_coef = l1_enc_coef
         self.ridge = ridge
-        self.hidden_dropout = hidden_dropout
+        self.hidden_dropout = [hidden_dropout]*len(self.hidden_size) if not isinstance(self.hidden_dropout, list) else hidden_dropout
         self.input_dropout = input_dropout
         self.batchnorm = batchnorm
         self.activation = activation
@@ -86,65 +79,63 @@ class Autoencoder():
         self.input_layer = None
         self.sf_layer = None
         self.debug = debug
+        self.encoder_type = encoder_type
 
-        if self.output_size is None:
-            self.output_size = input_size
-
-        if isinstance(self.hidden_dropout, list):
-            assert len(self.hidden_dropout) == len(self.hidden_size)
-        else:
-            self.hidden_dropout = [self.hidden_dropout]*len(self.hidden_size)
+        assert len(self.hidden_dropout) == len(self.hidden_size)
 
     def build(self):
 
         self.input_layer = Input(shape=(self.input_size,), name='count')
         self.sf_layer = Input(shape=(1,), name='size_factors')
+        
         last_hidden = self.input_layer
-
-        if self.input_dropout > 0.0:
-            last_hidden = Dropout(self.input_dropout, name='input_dropout')(last_hidden)
+        last_hidden = Dropout(self.input_dropout, name='input_dropout')(last_hidden) if self.input_dropout > 0.0 else last_hidden
 
         for i, (hid_size, hid_drop) in enumerate(zip(self.hidden_size, self.hidden_dropout)):
-            center_idx = int(np.floor(len(self.hidden_size) / 2.0))
+            layer_name, stage, l1, l2 = self.get_layer_information(i)
+
             if i == center_idx:
-                layer_name = 'center'
-                stage = 'center'  # let downstream know where we are
-            elif i < center_idx:
-                layer_name = 'enc%s' % i
-                stage = 'encoder'
-            else:
-                layer_name = 'dec%s' % (i-center_idx)
-                stage = 'decoder'
+                if self.encoder_type == 'VI'
+                    
 
-            # use encoder-specific l1/l2 reg coefs if given
-            if self.l1_enc_coef != 0. and stage in ('center', 'encoder'):
-                l1 = self.l1_enc_coef
-            else:
-                l1 = self.l1_coef
 
-            if self.l2_enc_coef != 0. and stage in ('center', 'encoder'):
-                l2 = self.l2_enc_coef
-            else:
-                l2 = self.l2_coef
-
-            last_hidden = Dense(hid_size, activation=None, kernel_initializer=self.init,
+            last_hidden = Dense(hid_size, 
+                                activation=None, 
+                                kernel_initializer=self.init,
                                 kernel_regularizer=l1_l2(l1, l2),
                                 name=layer_name)(last_hidden)
-            if self.batchnorm:
-                last_hidden = BatchNormalization(center=True, scale=False)(last_hidden)
 
-            # Use separate act. layers to give user the option to get pre-activations
-            # of layers when requested
-            if self.activation in advanced_activations:
-                last_hidden = keras.layers.__dict__[self.activation](name='%s_act'%layer_name)(last_hidden)
-            else:
-                last_hidden = Activation(self.activation, name='%s_act'%layer_name)(last_hidden)
+            last_hidden = BatchNormalization(center=True, scale=False)(last_hidden) \
+                          if self.batchnorm else last_hidden
 
-            if hid_drop > 0.0:
-                last_hidden = Dropout(hid_drop, name='%s_drop'%layer_name)(last_hidden)
+            # Use separate act. layers to give user the option to get pre-activations of layers when requested
+            last_hidden = keras.layers.__dict__[self.activation](name='%s_act'%layer_name)(last_hidden) \
+                          if self.activation in advanced_activations \
+                          else Activation(self.activation, name='%s_act'%layer_name)(last_hidden)
+
+            last_hidden = Dropout(hid_drop, name='%s_drop'%layer_name)(last_hidden) if hid_drop > 0.0 else last_hidden
 
         self.decoder_output = last_hidden
         self.build_output()
+
+
+    def get_layer_information(self, i):
+        '''
+        To keep track of the current layer by downstream tasks,
+        each layer is assigned some unique properties (or identifiers).
+
+        Additionally, the layer norms for each layer is also provided.
+        '''
+        center_idx = int(np.floor(len(self.hidden_size) / 2.0))
+        layer_name = 'centre' if i == center_idx else 'enc%s'%i if i < center_idx else 'dec%s'%(i-center_idx)
+        stage = 'centre' if i == center_idx else 'encoder' if i < center_idx else 'decoder' 
+
+        # use encoder-specific l1/l2 reg coefs if given
+        l1 = self.l1_enc_coef if self.l1_enc_coef != 0. and stage in ('center', 'encoder') else self.l1_coef
+        l2 = self.l2_enc_coef if self.l2_enc_coef != 0. and stage in ('center', 'encoder') else self.l2_coef
+
+        return layer_name, stage, l1, l2
+
 
     def build_output(self):
 
@@ -158,8 +149,8 @@ class Autoencoder():
         self.extra_models['mean_norm'] = Model(inputs=self.input_layer, outputs=mean)
         self.extra_models['decoded'] = Model(inputs=self.input_layer, outputs=self.decoder_output)
         self.model = Model(inputs=[self.input_layer, self.sf_layer], outputs=output)
-
         self.encoder = self.get_encoder()
+
 
     def save(self):
         if self.file_path:
@@ -173,28 +164,18 @@ class Autoencoder():
         self.decoder = None  # get_decoder()
 
     def get_decoder(self):
-        i = 0
-        for l in self.model.layers:
-            if l.name == 'center_drop':
-                break
-            i += 1
-
-        return Model(inputs=self.model.get_layer(index=i+1).input,
+        return Model(inputs=self.model.get_layer('dec1').input,
                      outputs=self.model.output)
 
     def get_encoder(self, activation=False):
-        if activation:
-            ret = Model(inputs=self.model.input,
-                        outputs=self.model.get_layer('center_act').output)
-        else:
-            ret = Model(inputs=self.model.input,
-                        outputs=self.model.get_layer('center').output)
-        return ret
+        return Model(inputs=self.model.input, 
+                     outputs=self.model.get_layer('center_act').output) \
+               if activation else \
+               Model(inputs=self.model.input,
+                     outputs=self.model.get_layer('center').output)
 
     def predict(self, adata, mode='denoise', return_info=False, copy=False):
-
         assert mode in ('denoise', 'latent', 'full'), 'Unknown mode'
-
         adata = adata.copy() if copy else adata
 
         if mode in ('denoise', 'full'):
@@ -562,52 +543,30 @@ class ZINBForkAutoencoder(ZINBAutoencoder):
 
         self.input_layer = Input(shape=(self.input_size,), name='count')
         self.sf_layer = Input(shape=(1,), name='size_factors')
+        
         last_hidden = self.input_layer
-
-        if self.input_dropout > 0.0:
-            last_hidden = Dropout(self.input_dropout, name='input_dropout')(last_hidden)
+        last_hidden = Dropout(self.input_dropout, name='input_dropout')(last_hidden) if self.input_dropout > 0.0 else last_hidden
 
         for i, (hid_size, hid_drop) in enumerate(zip(self.hidden_size, self.hidden_dropout)):
-            center_idx = int(np.floor(len(self.hidden_size) / 2.0))
-            if i == center_idx:
-                layer_name = 'center'
-                stage = 'center'  # let downstream know where we are
-            elif i < center_idx:
-                layer_name = 'enc%s' % i
-                stage = 'encoder'
-            else:
-                layer_name = 'dec%s' % (i-center_idx)
-                stage = 'decoder'
-
-            # use encoder-specific l1/l2 reg coefs if given
-            if self.l1_enc_coef != 0. and stage in ('center', 'encoder'):
-                l1 = self.l1_enc_coef
-            else:
-                l1 = self.l1_coef
-
-            if self.l2_enc_coef != 0. and stage in ('center', 'encoder'):
-                l2 = self.l2_enc_coef
-            else:
-                l2 = self.l2_coef
+            layer_name, stage, l1, l2 = self.get_layer_information(i)
 
             if i > center_idx:
                 self.last_hidden_mean = Dense(hid_size, activation=None, kernel_initializer=self.init,
-                                    kernel_regularizer=l1_l2(l1, l2),
-                                    name='%s_last_mean'%layer_name)(last_hidden)
+                                              kernel_regularizer=l1_l2(l1, l2),
+                                              name='%s_last_mean'%layer_name)(last_hidden)
                 self.last_hidden_disp = Dense(hid_size, activation=None, kernel_initializer=self.init,
-                                    kernel_regularizer=l1_l2(l1, l2),
-                                    name='%s_last_disp'%layer_name)(last_hidden)
+                                              kernel_regularizer=l1_l2(l1, l2),
+                                              name='%s_last_disp'%layer_name)(last_hidden)
                 self.last_hidden_pi = Dense(hid_size, activation=None, kernel_initializer=self.init,
-                                    kernel_regularizer=l1_l2(l1, l2),
-                                    name='%s_last_pi'%layer_name)(last_hidden)
+                                            kernel_regularizer=l1_l2(l1, l2),
+                                            name='%s_last_pi'%layer_name)(last_hidden)
 
                 if self.batchnorm:
                     self.last_hidden_mean = BatchNormalization(center=True, scale=False)(self.last_hidden_mean)
                     self.last_hidden_disp = BatchNormalization(center=True, scale=False)(self.last_hidden_disp)
                     self.last_hidden_pi = BatchNormalization(center=True, scale=False)(self.last_hidden_pi)
 
-                # Use separate act. layers to give user the option to get pre-activations
-                # of layers when requested
+                # Use separate act. layers to give user the option to get pre-activations of layers when requested
                 self.last_hidden_mean = Activation(self.activation, name='%s_mean_act'%layer_name)(self.last_hidden_mean)
                 self.last_hidden_disp = Activation(self.activation, name='%s_disp_act'%layer_name)(self.last_hidden_disp)
                 self.last_hidden_pi = Activation(self.activation, name='%s_pi_act'%layer_name)(self.last_hidden_pi)
@@ -622,18 +581,15 @@ class ZINBForkAutoencoder(ZINBAutoencoder):
                                     kernel_regularizer=l1_l2(l1, l2),
                                     name=layer_name)(last_hidden)
 
-                if self.batchnorm:
-                    last_hidden = BatchNormalization(center=True, scale=False)(last_hidden)
+                
+                last_hidden = BatchNormalization(center=True, scale=False)(last_hidden) if self.batchnorm else last_hidden
 
-                # Use separate act. layers to give user the option to get pre-activations
-                # of layers when requested
-                if self.activation in advanced_activations:
-                    last_hidden = keras.layers.__dict__[self.activation](name='%s_act'%layer_name)(last_hidden)
-                else:
-                    last_hidden = Activation(self.activation, name='%s_act'%layer_name)(last_hidden)
+                # Use separate act. layers to give user the option to get pre-activations of layers when requested
+                last_hidden = keras.layers.__dict__[self.activation](name='%s_act'%layer_name)(last_hidden) \
+                              if self.activation in advanced_activations \
+                              else Activation(self.activation, name='%s_act'%layer_name)(last_hidden)
 
-                if hid_drop > 0.0:
-                    last_hidden = Dropout(hid_drop, name='%s_drop'%layer_name)(last_hidden)
+                last_hidden = Dropout(hid_drop, name='%s_drop'%layer_name)(last_hidden) if hid_drop > 0.0 else last_hidden
 
         self.build_output()
 
@@ -672,48 +628,26 @@ class NBForkAutoencoder(NBAutoencoder):
 
         self.input_layer = Input(shape=(self.input_size,), name='count')
         self.sf_layer = Input(shape=(1,), name='size_factors')
-        last_hidden = self.input_layer
 
-        if self.input_dropout > 0.0:
-            last_hidden = Dropout(self.input_dropout, name='input_dropout')(last_hidden)
+        last_hidden = self.input_layer
+        last_hidden = Dropout(self.input_dropout, name='input_dropout')(last_hidden) if self.input_dropout > 0.0 else last_hidden
 
         for i, (hid_size, hid_drop) in enumerate(zip(self.hidden_size, self.hidden_dropout)):
-            center_idx = int(np.floor(len(self.hidden_size) / 2.0))
-            if i == center_idx:
-                layer_name = 'center'
-                stage = 'center'  # let downstream know where we are
-            elif i < center_idx:
-                layer_name = 'enc%s' % i
-                stage = 'encoder'
-            else:
-                layer_name = 'dec%s' % (i-center_idx)
-                stage = 'decoder'
-
-            # use encoder-specific l1/l2 reg coefs if given
-            if self.l1_enc_coef != 0. and stage in ('center', 'encoder'):
-                l1 = self.l1_enc_coef
-            else:
-                l1 = self.l1_coef
-
-            if self.l2_enc_coef != 0. and stage in ('center', 'encoder'):
-                l2 = self.l2_enc_coef
-            else:
-                l2 = self.l2_coef
+            layer_name, stage, l1, l2 = self.get_layer_information(i)
 
             if i > center_idx:
                 self.last_hidden_mean = Dense(hid_size, activation=None, kernel_initializer=self.init,
-                                    kernel_regularizer=l1_l2(l1, l2),
-                                    name='%s_last_mean'%layer_name)(last_hidden)
+                                              kernel_regularizer=l1_l2(l1, l2),
+                                              name='%s_last_mean'%layer_name)(last_hidden)
                 self.last_hidden_disp = Dense(hid_size, activation=None, kernel_initializer=self.init,
-                                    kernel_regularizer=l1_l2(l1, l2),
-                                    name='%s_last_disp'%layer_name)(last_hidden)
+                                              kernel_regularizer=l1_l2(l1, l2),
+                                              name='%s_last_disp'%layer_name)(last_hidden)
 
                 if self.batchnorm:
                     self.last_hidden_mean = BatchNormalization(center=True, scale=False)(self.last_hidden_mean)
                     self.last_hidden_disp = BatchNormalization(center=True, scale=False)(self.last_hidden_disp)
 
-                # Use separate act. layers to give user the option to get pre-activations
-                # of layers when requested
+                # Use separate act. layers to give user the option to get pre-activations of layers when requested
                 self.last_hidden_mean = Activation(self.activation, name='%s_mean_act'%layer_name)(self.last_hidden_mean)
                 self.last_hidden_disp = Activation(self.activation, name='%s_disp_act'%layer_name)(self.last_hidden_disp)
 
@@ -726,18 +660,14 @@ class NBForkAutoencoder(NBAutoencoder):
                                     kernel_regularizer=l1_l2(l1, l2),
                                     name=layer_name)(last_hidden)
 
-                if self.batchnorm:
-                    last_hidden = BatchNormalization(center=True, scale=False)(last_hidden)
+                last_hidden = BatchNormalization(center=True, scale=False)(last_hidden) if self.batchnorm else last_hidden
 
-                # Use separate act. layers to give user the option to get pre-activations
-                # of layers when requested
-                if self.activation in advanced_activations:
-                    last_hidden = keras.layers.__dict__[self.activation](name='%s_act'%layer_name)(last_hidden)
-                else:
-                    last_hidden = Activation(self.activation, name='%s_act'%layer_name)(last_hidden)
+                # Use separate act. layers to give user the option to get pre-activations of layers when requested
+                last_hidden = keras.layers.__dict__[self.activation](name='%s_act'%layer_name)(last_hidden) \
+                              if self.activation in advanced_activations \
+                              else Activation(self.activation, name='%s_act'%layer_name)(last_hidden)
 
-                if hid_drop > 0.0:
-                    last_hidden = Dropout(hid_drop, name='%s_drop'%layer_name)(last_hidden)
+                last_hidden = Dropout(hid_drop, name='%s_drop'%layer_name)(last_hidden) if hid_drop > 0.0 else last_hidden
 
         self.build_output()
 
